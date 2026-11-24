@@ -82,7 +82,7 @@ input:focus,textarea:focus{border-color:var(--blu);box-shadow:0 0 0 4px rgba(31,
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body>
 <div class="blobs"><i></i><i></i><i></i><i></i></div>
-<div class="bd" id="bd"><button class="btn ghost" id="bAdm">Candidates</button><button class="btn ghost" id="bPrev">Preview test</button></div>
+<div class="bd" id="bd"><button class="btn ghost" id="bAdm">Candidates</button><button class="btn ghost" id="bPrev">Preview test</button><button class="btn ghost" id="bOut">Log out</button></div>
 <main>
 <section class="screen on" id="s0"><div class="hero"><div>
 <h1>Discover your <b>colour energy</b></h1>
@@ -123,8 +123,17 @@ input:focus,textarea:focus{border-color:var(--blu);box-shadow:0 0 0 4px rgba(31,
 <h3>Selected words</h3><div class="tags" id="tags"></div>
 <h3>Strengths</h3><p id="str"></p><h3>Watch out for</h3><p id="wat"></p>
 <div class="acts"><button class="btn" id="pdf">Download PDF</button><button class="btn ghost" id="mail">Email summary</button></div></div></div></section>
+<section class="screen" id="s8"><h1 style="font-size:clamp(2rem,6vw,3rem)">Admin login</h1><p class="lead">Only the hiring team can view results.</p>
+<form id="lg" novalidate><label>Email<input id="le" type="email" autocomplete="username"></label><label>Password<input id="lpw" type="password" autocomplete="current-password"></label><span class="err" id="lerr"></span><div><button class="btn" type="submit">Log in</button></div></form></section>
 </main><div class="toast" id="toast"></div>
-<script>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import{getFirestore,collection,addDoc,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+/* ====== PASTE YOUR FIREBASE KEYS HERE (Project settings > Your apps > Web app) ====== */
+const firebaseConfig={apiKey:"AIzaSyCCtOGalOCHUtxC0mBhWp4y3c55-iWqWV4",authDomain:"color-energy-assessment-147b4.firebaseapp.com",projectId:"color-energy-assessment-147b4",storageBucket:"color-energy-assessment-147b4.firebasestorage.app",messagingSenderId:"348752754186",appId:"1:348752754186:web:f166f241d5c111afa711f3"};
+/* ================================================================================ */
+const app=initializeApp(firebaseConfig),fdb=getFirestore(app),auth=getAuth(app);
 const C={red:{n:"Fiery Red",c:"#d1253b",key:"R"},yel:{n:"Sunshine Yellow",c:"#f2a516",key:"Y"},grn:{n:"Earth Green",c:"#4d9a3a",key:"G"},blu:{n:"Cool Blue",c:"#1f6fd1",key:"B"}};
 const W={red:"challenging determined firm active driving strong-willed purposeful forceful courageous decisive daring",
 yel:"cheerful enthusiastic fun convincing sociable persuasive influencing optimistic outgoing mobile friendly engaging impulsive",
@@ -138,7 +147,7 @@ blu:{vibe:"Thoughtful, precise and analytical",d:"Energised by facts, quality an
 const T={RY:"Motivator",RG:"Steward",RB:"Reformer",YR:"Inspirer",YG:"Harmoniser",YB:"Persuader",GY:"Supporter",GR:"Anchor",GB:"Guardian",BR:"Strategist",BY:"Evaluator",BG:"Coordinator"};
 const $=id=>document.getElementById(id),MIN=12,sel=new Set(),all=[];
 for(const k in W)W[k].split(" ").forEach(w=>all.push({w,k}));
-let db=null,uid=null,isAdmin=false,rows=[],cur=null,det=null,unsub=null;
+let rows=[],det=null,unsub=null;
 function show(n){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id=="s"+n));window.scrollTo({top:0,behavior:"smooth"})}
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");setTimeout(()=>e.classList.remove("on"),2600)}
 function mk(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
@@ -156,9 +165,9 @@ $("f").onsubmit=e=>{e.preventDefault();let ok=true;for(const id in V){const el=$
 if(!ok)return;me={name:$("fn").value.trim(),phone:$("fp").value.trim(),dob:$("fd").value,email:$("fe").value.trim(),address:$("fa").value.trim()};show(1)};
 $("clr").onclick=()=>{sel.clear();document.querySelectorAll(".chip").forEach(c=>c.classList.remove("sel"));upd()};
 $("go").onclick=submit;$("retry").onclick=submit;
-async function submit(){show(2);const words=[...sel],a=analyse(words),t0=Date.now();let ok=false,msg="";
-try{if(!db)throw 0;await db.doc("submissions/"+uid).set({...me,words,...a,at:Date.now()});ok=true;try{localStorage.setItem("ce_done","1")}catch(e){}}catch(e){msg=db?"We couldn’t save your answers. Check your connection and try again.":"Submission needs you to open this link signed in to claude.ai with permission to respond. Ask the team for access."}
-setTimeout(()=>{$("okc").style.display=ok?"grid":"none";$("th").textContent=ok?"Thank you":"Not submitted";$("tp").textContent=ok?"Your assessment has been submitted. Our team will review it and contact you.":msg;$("retry").style.display=ok?"none":"inline-block";show(7)},Math.max(0,1800-(Date.now()-t0)))}
+async function submit(){show(2);const words=[...sel],a=analyse(words),t0=Date.now();let ok=false;
+try{await addDoc(collection(fdb,"submissions"),{...me,words,...a,at:Date.now()});ok=true;try{localStorage.setItem("ce_done","1")}catch(e){}}catch(e){console.error(e)}
+setTimeout(()=>{$("okc").style.display=ok?"grid":"none";$("th").textContent=ok?"Thank you":"Not submitted";$("tp").textContent=ok?"Your assessment has been submitted. Our team will review it and contact you.":"We couldn’t save your answers. Check your connection and try again.";$("retry").style.display=ok?"none":"inline-block";show(7)},Math.max(0,1800-(Date.now()-t0)))}
 /* admin */
 const ang={red:[0,90],yel:[90,180],grn:[180,270],blu:[270,360]};
 const pt=(r,a)=>{a=a*Math.PI/180;return[160+r*Math.sin(a),160-r*Math.cos(a)]};
@@ -182,16 +191,17 @@ m.append(mk("b","",r.name),mk("small","",r.type+" · "+C[r.primary].n+" + "+C[r.
 Object.keys(C).forEach(k=>{const i=mk("i");i.style.width=(r.pct[k]||0)+"%";i.style.background=C[k].c;mn.append(i)});b.append(av,m,mn);b.onclick=()=>open(r);L.append(b)})}
 $("q").oninput=renderList;$("back").onclick=()=>show(4);
 $("bAdm").onclick=()=>show(4);$("bPrev").onclick=()=>show(0);
-async function boot(){
-try{const u=await claude.use("user");if(u){uid=await u.id();isAdmin=await u.canEdit()}db=await claude.use("db")}catch(e){}
-if(!uid)uid="c"+Math.random().toString(36).slice(2,12);
-try{if(localStorage.getItem("ce_done")&&!isAdmin){$("th").textContent="Already submitted";show(7);return}}catch(e){}
-if(isAdmin&&db){$("bd").classList.add("on");show(4);
-unsub=db.collection("submissions").onSnapshot(s=>{rows=s.docs.map(d=>d.data()).filter(r=>r&&r.sc).sort((a,b)=>b.at-a.at);renderList()},()=>{$("cn").textContent="Couldn’t load submissions."})}}
+function route(){if(location.hash=="#admin")return show(8);try{if(localStorage.getItem("ce_done")){$("th").textContent="Already submitted";show(7);return}}catch(e){}show(0)}
+onAuthStateChanged(auth,u=>{if(unsub){unsub();unsub=null}
+if(u){$("bd").classList.add("on");show(4);unsub=onSnapshot(query(collection(fdb,"submissions"),orderBy("at","desc")),sn=>{rows=sn.docs.map(d=>d.data()).filter(r=>r&&r.sc);renderList()},()=>{$("cn").textContent="Couldn’t load. This account isn’t the admin."})}
+else{$("bd").classList.remove("on");route()}});
+window.addEventListener("hashchange",()=>{if(!auth.currentUser)route()});
+$("lg").onsubmit=async e=>{e.preventDefault();$("lerr").textContent="";try{await signInWithEmailAndPassword(auth,$("le").value.trim(),$("lpw").value)}catch(x){$("lerr").textContent="Wrong email or password"}};
+$("bOut").onclick=async()=>{await signOut(auth);location.hash="";show(0)};
 /* exports */
 $("mail").onclick=()=>{const r=det,t=`Colour energy result\n\nName: ${r.name}\nType: ${r.type} (${C[r.primary].n} + ${C[r.secondary].n})\nPhone: ${r.phone}\nEmail: ${r.email}\nDOB: ${r.dob}\n\n`+Object.keys(C).map(k=>C[k].n+": "+r.pct[k]+"%").join("\n")+`\n\nVibe: ${INFO[r.primary].vibe}\nWords: ${r.words.join(", ")}`;
 const a=document.createElement("a");a.href="mailto:?subject="+encodeURIComponent("Assessment result: "+r.name)+"&body="+encodeURIComponent(t);a.target="_blank";a.click()};
-async function save(name,data){const d=await claude.use("downloads");if(!d)return toast("Downloads aren’t available in this view");try{await d.save({filename:name,data})}catch(e){if(e.code!="declined")toast("Couldn’t save the file")}}
+function save(name,data){const b=data instanceof Blob?data:new Blob([data],{type:"text/csv"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 $("csv").onclick=()=>{const q=v=>'"'+String(v).replace(/"/g,'""')+'"';save("candidates.csv",["Name,Phone,DOB,Email,Address,Type,Primary,Secondary,Red%,Yellow%,Green%,Blue%,Submitted,Words"].concat(rows.map(r=>[r.name,r.phone,r.dob,r.email,r.address,r.type,C[r.primary].n,C[r.secondary].n,r.pct.red,r.pct.yel,r.pct.grn,r.pct.blu,dt(r.at),r.words.join(" ")].map(q).join(","))).join("\n"))};
 $("pdf").onclick=()=>{if(!window.jspdf)return toast("PDF library didn’t load. Check connection.");const r=det,D=new jspdf.jsPDF(),c=C[r.primary].c;
 D.setFillColor(c);D.rect(0,0,210,38,"F");D.setTextColor("#ffffff");D.setFontSize(22);D.setFont("helvetica","bold");D.text("Colour Energy Assessment",15,22);D.setFontSize(11);D.setFont("helvetica","normal");D.text("Submitted "+dt(r.at),15,31);
@@ -202,5 +212,5 @@ let y=122;D.setTextColor("#1a1630");D.setFont("helvetica","bold");D.setFontSize(
 Object.keys(C).sort((a,b)=>r.sc[b]-r.sc[a]).forEach(k=>{D.setFont("helvetica","normal");D.setFontSize(10.5);D.setTextColor("#333333");D.text(C[k].n,15,y);D.setFillColor("#e8e6ee");D.rect(60,y-4,110,5,"F");D.setFillColor(C[k].c);D.rect(60,y-4,1.1*r.pct[k],5,"F");D.text(r.pct[k]+"%",175,y);y+=9});
 y+=4;[["Vibe",INFO[r.primary].vibe+". "+INFO[r.primary].d],["Strengths",INFO[r.primary].s],["Watch out for",INFO[r.primary].w],["Selected words",r.words.join(", ")]].forEach(([h,t])=>{D.setFont("helvetica","bold");D.setFontSize(12);D.setTextColor("#1a1630");D.text(h,15,y);y+=6;D.setFont("helvetica","normal");D.setFontSize(10.5);D.setTextColor("#444444");const ln=D.splitTextToSize(t,180);D.text(ln,15,y);y+=ln.length*5+6});
 save(r.name.replace(/[^a-z0-9]+/gi,"_")+"_assessment.pdf",D.output("blob"))};
-build();upd();boot();
+build();upd();
 </script></body></html>
